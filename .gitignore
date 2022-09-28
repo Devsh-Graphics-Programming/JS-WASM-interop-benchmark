@@ -37,3 +37,5 @@ Debug
 Release
 bin
 obj
+*.filters
+*.user
