@@ -9,7 +9,7 @@ namespace Benchmark.CS.Native
 		{
 			for(int i = 0; i < SIZE; i++)
 			{
-				array[i] *= i + 0.123456789f;
+				array[i] *= (float)(i+3);
 			}
 		}
 
