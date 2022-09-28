@@ -34,14 +34,12 @@ namespace Benchmark.CS
         }
 
         [JSInvokable]
-        public float TestMethod2()
+        public void TestMethod2()
         {
-
             for(int i = 0; i < Length; i++)
             {
-                list[i] *= 2;
+                list[i] *= i + 0.123456789f;
             }
-            return list[1000];
         }
 
     }

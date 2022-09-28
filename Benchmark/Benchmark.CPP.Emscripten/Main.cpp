@@ -13,10 +13,9 @@ extern "C" {
 
     EMSCRIPTEN_KEEPALIVE void do_something_with_array(float* ptr, int len)
     {
-        std::cout << ptr[1000] << "\n";
         for (size_t i = 0; i < len; i++)
         {
-            ptr[i] *= float(i + 3u);
+            ptr[i] *= float(i) + 0.123456789f;
         }
     }
 }

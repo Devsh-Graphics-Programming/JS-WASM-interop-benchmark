@@ -6,7 +6,7 @@ extern "C" {
     {
         for (size_t i = 0; i < len; i++)
         {
-            ptr[i] *= float(i + 3u);
+            ptr[i] *= float(i) + 0.123456789f;
         }
     }
 }
@@ -18,14 +18,17 @@ int main()
     constexpr int size = 1 << 20;
     auto start = std::chrono::high_resolution_clock::now();
     float* arr = (float*)malloc(size * sizeof(float));
-    for (size_t i = 0; i < 1000; i++)
+    for (size_t j = 0; j < 1000; j++)
+    {
         for (size_t i = 0; i < size; i++)
         {
             arr[i] = float(i);
         }
+    }
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = end - start;
-    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << std::endl;
+
+    std::cout << "Initialization duration " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << std::endl;
     std::cout << "Starting benchmark!\n";
 
     start = std::chrono::high_resolution_clock::now();
@@ -35,7 +38,7 @@ int main()
     }
     end = std::chrono::high_resolution_clock::now();
     duration = end - start;
-    std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << std::endl;
+    std::cout << "Loop duration " << std::chrono::duration_cast<std::chrono::milliseconds>(duration).count() << std::endl;
 
     std::cout << arr[rand() % size] << "\n";
 }

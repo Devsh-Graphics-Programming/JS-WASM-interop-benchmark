@@ -1,5 +1,5 @@
 ﻿const SIZE = 1 << 20;
-const ITERS = 2;
+const ITERS = 1000;
 
 
 
