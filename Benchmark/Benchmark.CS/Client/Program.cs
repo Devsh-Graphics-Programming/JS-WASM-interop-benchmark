@@ -6,6 +6,7 @@ namespace Benchmark.CS
 {
 	public class Program
 	{
+		public const int ITERATIONS = 1000;
 		public static async Task Main(string[] args)
 		{
 			var builder = WebAssemblyHostBuilder.CreateDefault(args);

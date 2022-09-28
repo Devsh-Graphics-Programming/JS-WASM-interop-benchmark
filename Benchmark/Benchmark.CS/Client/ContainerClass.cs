@@ -1,45 +1,67 @@
 ﻿using Microsoft.JSInterop;
+using System.Diagnostics;
+using System.Drawing;
 
 namespace Benchmark.CS
 {
     public class ContainerClass
     {
-        private readonly IJSRuntime js;
-        private List<float> list;
+        const int SIZE = 1<<20;
+        private float[] array;
 
-        public ContainerClass(IJSRuntime js)
+        public ContainerClass()
         {
-            this.js = js;
-            list = new List<float>(1 << 20);
+            array = new float[SIZE];
         }
 
         [JSInvokable]
-        public void Add(float f)
+        public void set(int i, float f)
         {
-            list.Add(f);
+            array[i] = f;
         }
-
-        [JSInvokable]
-        public void Clear()
-        {
-            list.Clear();
-        }
-
-        public int Length => list.Count;
 
         public float this[int i]
         {
-            get { return list[i]; }
-            set { list[i] = value; }
+            get { return array[i]; }
+            set { array[i] = value; }
         }
 
         [JSInvokable]
-        public void TestMethod2()
+        public void DoSomethingWithArray()
         {
-            for(int i = 0; i < Length; i++)
+			for(int i = 0; i < SIZE; i++)
+			{
+				array[i] *= (float)(i+3);
+			}
+        }
+
+        [JSInvokable]
+        public static void PseudoNativeBenchmark()
+        {
+            Stopwatch stopwatch = new Stopwatch();
+
+            stopwatch.Start();
+            var array = new ContainerClass();
+            for (int i = 0; i<Benchmark.CS.Program.ITERATIONS; i++)
             {
-                list[i] *= i + 0.123456789f;
+                for (int j = 0; j < SIZE; j++)
+                {
+                    array[j] = j;
+                }
             }
+            stopwatch.Stop();
+            Console.WriteLine("Initialization Elapsed milliseconds: " + stopwatch.ElapsedMilliseconds);
+
+            stopwatch.Start();
+            for (int i = 0; i < Benchmark.CS.Program.ITERATIONS; i++)
+            {
+                array.DoSomethingWithArray();
+            }
+            stopwatch.Stop();
+            Console.WriteLine("Loop Elapsed milliseconds: " + stopwatch.ElapsedMilliseconds);
+
+
+            Console.WriteLine(array[new System.Random().Next(SIZE)]);
         }
 
     }

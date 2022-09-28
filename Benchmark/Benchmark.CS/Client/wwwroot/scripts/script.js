@@ -1,12 +1,18 @@
 ﻿const SIZE = 1 << 20;
 const ITERS = 1000;
+const WARMUP = 5;
 
 
 
 
 
-StartBenchmark1 = () => {
-    console.log("starting benchmark 1");
+NativeBenchmark = () => {
+    console.log("starting pseudo-native benchmark");
+    DotNet.invokeMethod("Benchmark.CS", "PseudoNativeBenchmark", a);
+};
+
+JSArrayBenchmark = () => {
+    console.log("starting JS Array to C# benchmark");
     console.log("warning, this test is expected to take HOURS");
     console.log("starting array initalization measuring");
 
@@ -25,10 +31,10 @@ StartBenchmark1 = () => {
     }
 
     {
-        console.log("starting function call measuring warmup (5 function calls)");
-        for (var i = 0; i < 5; i++) {
+        console.log("starting function call measuring warmup (" + WARMUP + " function calls)");
+        for (var i = 0; i < WARMUP; i++) {
             var T_warmup = performance.now();
-            DotNet.invokeMethod("Benchmark.CS", "TestMethod1", a);
+            DotNet.invokeMethod("Benchmark.CS", "DoSomethingWithArray", a);
             var duration = (performance.now() - T_warmup) + " ms";
             console.log("Iteration" + i + ": " + duration);
 
@@ -38,7 +44,7 @@ StartBenchmark1 = () => {
         console.log("starting function call measuring (" + ITERS + " iterations)");
             var T_start = performance.now();
         for (var i = 0; i < ITERS; i++) {
-            DotNet.invokeMethod("Benchmark.CS", "TestMethod1", a);
+            DotNet.invokeMethod("Benchmark.CS", "DoSomethingWithArray", a);
         }
         var duration = (performance.now() - T_start) + " ms";
         console.log("Iteration" + i + ": " + duration);
@@ -55,19 +61,16 @@ StartBenchmark1 = () => {
 
 
 
-
-
-StartBenchmark2 = (containerRef) => {
-    console.log("starting benchmark 2");
+CSContainerBenchmark = (containerRef) => {
+    console.log("starting C# Container initialized by JS benchmark");
     console.log("starting array initalization measuring");
 
     var result = "Initialization : ";
     {
         var T_init_start = performance.now();
         for (var i = 0; i < ITERS; i++) {
-            containerRef.invokeMethod('Clear');
             for (var j = 0; j < SIZE; j++) {
-                containerRef.invokeMethod('Add', j);
+                containerRef.invokeMethod('set', i, j);
             }
         }
         var duration = (performance.now() - T_init_start) + " ms";
@@ -77,10 +80,10 @@ StartBenchmark2 = (containerRef) => {
     }
 
     {
-        console.log("starting function call measuring warmup (5 function calls)");
-        for (var i = 0; i < 5; i++) {
+        console.log("starting function call measuring warmup (" + WARMUP+" function calls)");
+        for (var i = 0; i < WARMUP; i++) {
             var T_warmup = performance.now();
-            containerRef.invokeMethod( "TestMethod2");
+            containerRef.invokeMethod( "DoSomethingWithArray");
             var duration = (performance.now() - T_warmup) + " ms";
             console.log("Iteration" + i + ": " + duration);
 
@@ -90,7 +93,7 @@ StartBenchmark2 = (containerRef) => {
         console.log("starting function call measuring (" + ITERS + " iterations)");
         var T_start = performance.now();
         for (var i = 0; i < ITERS; i++) {
-            containerRef.invokeMethod("TestMethod2");
+            containerRef.invokeMethod("DoSomethingWithArray");
         }
         var duration = (performance.now() - T_start) + " ms";
         console.log("Iteration" + i + ": " + duration);

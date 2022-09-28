@@ -15,9 +15,9 @@
     public async void OnButtonClick2()
     {
         result += "> ";
-        ContainerClass cc = new ContainerClass(JS);
+        ContainerClass cc = new ContainerClass();
         var ccref = DotNetObjectReference.Create(cc);
-        string res = await JS.InvokeAsync<string>("StartBenchmark2", ccref);
+        string res = await JS.InvokeAsync<string>("CSContainerBenchmark", ccref);
         result += $"{res}\n";
 
     }
