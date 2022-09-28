@@ -1,0 +1,24 @@
+﻿@page "/test2"
+@inject IJSRuntime JS
+
+<PageTitle>Test passing around a .NET object</PageTitle>
+<button @onclick=OnButtonClick2 > Run benchmark 2 once </button>
+<h1>Results: </h1>
+<p>@result</p>
+@code {
+
+  
+
+
+    public string result = "";
+
+    public async void OnButtonClick2()
+    {
+        result += "> ";
+        ContainerClass cc = new ContainerClass(JS);
+        var ccref = DotNetObjectReference.Create(cc);
+        string res = await JS.InvokeAsync<string>("StartBenchmark2", ccref);
+        result += $"{res}\n";
+
+    }
+}

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Emscripten">
+      <Configuration>Debug</Configuration>
+      <Platform>Emscripten</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Emscripten">
+      <Configuration>Release</Configuration>
+      <Platform>Emscripten</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>15.0</VCProjectVersion>
+    <ProjectGuid>{b9aa07b5-7340-4c0b-b17f-c49de1590fcd}</ProjectGuid>
+    <RootNamespace>Benchmark_CPP_Emscripten</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Debug|Emscripten'">
+    <ConfigurationType>HTMLPage</ConfigurationType>
+    <PlatformToolset>emcc</PlatformToolset>
+    <EmscriptenDir>$(EMSDK)\upstream\emscripten\</EmscriptenDir>
+  </PropertyGroup>
+  <PropertyGroup Label="Configuration" Condition="'$(Configuration)|$(Platform)'=='Release|Emscripten'">
+    <ConfigurationType>HTMLPage</ConfigurationType>
+    <PlatformToolset>emcc</PlatformToolset>
+    <EmscriptenDir>$(EMSCRIPTEN)</EmscriptenDir>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Emscripten'">
+    <ClCompile>
+      <OptimizationLevel>O3</OptimizationLevel>
+    </ClCompile>
+    <Link>
+      <JsLibrary>$(ProjectDir)script.js;%(JsLibrary)</JsLibrary>
+      <AdditionalOptions> -s EXPORTED_RUNTIME_METHODS=[ccall,cwrap] -s WASM=1 %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="Main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="script.js" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
