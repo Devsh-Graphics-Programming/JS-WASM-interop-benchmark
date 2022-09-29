@@ -2,14 +2,14 @@
 @inject IJSRuntime JS
 
 <PageTitle>Test passing large array as argument</PageTitle>
-<button @onclick=OnButtonClick1 >Run benchmark 1 once </button>
+<button @onclick=OnRunButtonClick >Run benchmark 1 once </button>
 <h1>Results: </h1>
 <p>@result</p>
 @code {
     public string result = "";
 
     [JSInvokable]
-    public static void DoSomethingWithArray(float[] arr)
+    public static void WasmBenchmarkTestArray(float[] arr)
     {
         for(int i = 0; i < arr.Length; i++)
         {
@@ -19,7 +19,7 @@
 
 
 
-    protected async void OnButtonClick1()
+    protected async void OnRunButtonClick()
     {
         result += "> ";
         string res = await JS.InvokeAsync<string>("JSArrayBenchmark");

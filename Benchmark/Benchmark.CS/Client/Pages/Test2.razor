@@ -2,23 +2,23 @@
 @inject IJSRuntime JS
 
 <PageTitle>Test passing around a .NET object</PageTitle>
-<button @onclick=OnButtonClick2 > Run benchmark 2 once </button>
+<button @onclick=OnRunButtonClick > Run benchmark 2 once </button>
 <h1>Results: </h1>
-<p>@result</p>
+<p>@BenchmarkResultText</p>
 @code {
 
-  
 
 
-    public string result = "";
 
-    public async void OnButtonClick2()
+    public string BenchmarkResultText { get; set; }
+
+    public async void OnRunButtonClick()
     {
-        result += "> ";
+        BenchmarkResultText += "> ";
         ContainerClass cc = new ContainerClass();
         var ccref = DotNetObjectReference.Create(cc);
         string res = await JS.InvokeAsync<string>("CSContainerBenchmark", ccref);
-        result += $"{res}\n";
+        BenchmarkResultText += $"{res}\n";
 
     }
 }
