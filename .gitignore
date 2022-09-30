@@ -39,3 +39,4 @@ bin
 obj
 *.filters
 *.user
+*.pubxml
