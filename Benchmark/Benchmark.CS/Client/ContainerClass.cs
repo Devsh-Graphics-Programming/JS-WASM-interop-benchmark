@@ -56,7 +56,7 @@ namespace Benchmark.CS
 			stopwatch.Start();
 			for(int i = 0; i < Benchmark.CS.Program.ITERATIONS; i++)
 			{
-				array.DoSomethingWithArray();
+				array.WasmBenchmarkTestArrayInstanced();
 			}
 			stopwatch.Stop();
 			Console.WriteLine("Loop Elapsed milliseconds: " + stopwatch.ElapsedMilliseconds);

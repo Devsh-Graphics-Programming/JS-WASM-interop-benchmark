@@ -1,27 +1,33 @@
-﻿using System.Diagnostics;
-using System.Drawing;
+﻿@page "/test4"
+@using System.Diagnostics
+@inject IJSRuntime JS
 
-namespace Benchmark.CS.Native
-{
-	internal class Program
+<PageTitle>Test wasm only function calls</PageTitle>
+<h1> Wasm only function calling benchmark</h1>
+<button @onclick=OnRunButtonClick > Run benchmark 4 once</button>
+<h1>Results: </h1>
+<p>@BenchmarkResultText</p>
+@code {
+
+
+	internal class WasmBenchmark
 	{
 		const int SIZE = 1 << 20;
-		const int ITERS = 1000;
+		const int ITERS = Program.ITERATIONS;
 		const int RUNS = 50;
 
-
-		static void benchmark_test_array(float[] array)
+		void benchmark_test_array(float[] array)
 		{
 			for(int i = 0; i < SIZE; i++)
 			{
-				array[i] *= i + 0.123456789f;
+				array[i] *= (float) (i + 3);
 			}
 		}
 
 
 		//using the "in" keyword passes the argument by reference and as readonly
 		//this is 2x slower than without "in"
-		static void benchmark_test_array_by_ref(in float[] array)
+		void benchmark_test_array_by_ref(in float[] array)
 		{
 			for(int i = 0; i < SIZE; i++)
 			{
@@ -30,7 +36,7 @@ namespace Benchmark.CS.Native
 		}
 
 
-		static Tuple<long, long, long> RunTest()
+		Tuple<long, long, long> RunTest()
 		{
 
 
@@ -79,7 +85,7 @@ namespace Benchmark.CS.Native
 		}
 
 
-		static void Main(string[] args)
+		internal string Run()
 		{
 			long totalInit = 0, totalLoop = 0, totalLoopRef = 0;
 			for(int i = 0; i < RUNS; i++)
@@ -90,9 +96,22 @@ namespace Benchmark.CS.Native
 				totalLoopRef += tuple.Item3;
 			}
 
-			Console.WriteLine($"Average initialization time: {totalInit/RUNS:N0} ms");
-			Console.WriteLine($"Average loop time: {totalLoop/RUNS:N0} ms");
-			Console.WriteLine($"Average loop ref time: {totalLoopRef/RUNS:N0} ms");
+			return $"Average initialization time: {totalInit / RUNS:N0} ms\n" +
+			$"Average loop time: {totalLoop / RUNS:N0} ms\n" +
+			$"Average loop ref time: {totalLoopRef / RUNS:N0} ms";
 		}
+
+
+
+	}
+
+	public string BenchmarkResultText { get; set; }
+
+	public async void OnRunButtonClick()
+	{
+		Console.WriteLine("Starting benchmark");
+		var result = new WasmBenchmark().Run();
+		Console.WriteLine(result);
+		BenchmarkResultText += "\n>" + result;
 	}
 }

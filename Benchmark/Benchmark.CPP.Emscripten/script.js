@@ -1,10 +1,11 @@
-const SIZE = 1 << 20;
-const ITERS = 1000;
-const WARMUP = 5;
+
 
 mergeInto(LibraryManager.library, {
 
     Benchmark_functionCallsWithArrayArgument: function () {
+        const SIZE = 1 << 20;
+        const ITERS = 1000;
+        const WARMUP = 5;
         console.log("Starting benchmark: Emscripten inter-lang function calls with array argument");
         console.log(SIZE + " Array length");
         console.log("With warmup");
@@ -33,10 +34,14 @@ mergeInto(LibraryManager.library, {
     },
 
     Benchmark_exposedGenericCollectionToJS: function () {
+        const SIZE = 1 << 20;
+        const ITERS = 1000;
+        const WARMUP = 5;
         console.log("Starting benchmark: Emscripten inter-lang function calls with JS-exposed generic collection as argument");
         console.log(SIZE + " Array length");
-
-        var testVector = Module['VectorFloat'](SIZE) //call ctor  std::vector<float>(SIZE);
+        var testVector = new Module["vector_float"]();
+        for (var j = 0; j < SIZE; j++)
+            testVector.push_back(j);
 
         {
             var timestamp = performance.now();
