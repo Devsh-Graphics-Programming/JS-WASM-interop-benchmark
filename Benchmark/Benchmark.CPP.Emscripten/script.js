@@ -35,19 +35,23 @@ mergeInto(LibraryManager.library, {
 
     Benchmark_exposedGenericCollectionToJS: function () {
         const SIZE = 1 << 20;
+        const SIZE_OF_FLOAT = 4;
         const ITERS = 1000;
         const WARMUP = 5;
         console.log("Starting benchmark: Emscripten inter-lang function calls with JS-exposed generic collection as argument");
         console.log(SIZE + " Array length");
-        var testVector = new Module["vector_float"]();
-        for (var j = 0; j < SIZE; j++)
-            testVector.push_back(j);
 
+        var buffer = Module._malloc(SIZE * SIZE_OF_FLOAT);
+               
         {
             var timestamp = performance.now();
-            for (var i = 0; i < ITERS; i++)
-                for (var j = 0; j < SIZE; j++)
-                    testVector.set(j, j);
+            for (var i = 0; i < ITERS; i++) {
+                for (var j = 0; j < SIZE; j++) {
+                    const location = buffer + j * 4; 
+                    const type = "float";
+                    Module.setValue(location, j, type);
+                }
+            }
             var initializationDuration = (performance.now() - timestamp) + " ms";
             console.log("done with initialization testing, result is " + initializationDuration);
         }
@@ -55,11 +59,28 @@ mergeInto(LibraryManager.library, {
         {
             var timestampt = performance.now();
             for (var i = 0; i < ITERS; i++)
-                Module['wasm_benchmark_test_vector'](testVector);
+                Module.ccall("wasm_benchmark_test_array", null, ["number", "number"], [buffer, SIZE]);
             var loopDuration = performance.now() - timestampt;
             console.log("Function calls: " + loopDuration);
         }
 
+
+    },
+
+
+    Benchmark_directWasmHeapAllocation: function () {
+
+        const SIZE = 1 << 20;
+        const SIZE_OF_FLOAT = 4;
+        const ITERS = 1000;
+        const WARMUP = 5;
+
+        var testArray = Array.from({ length: SIZE }, (_, i) => i);
+
+        var buffer = Module._malloc(SIZE * SIZE_OF_FLOAT);
+        Module.HEAPF32.set(samples, buffer / SIZE_OF_FLOAT);
+
+        Module._free(buffer);
 
     },
 });

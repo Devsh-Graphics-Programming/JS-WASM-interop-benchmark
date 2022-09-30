@@ -38,7 +38,7 @@
     </ClCompile>
     <Link>
       <JsLibrary>$(ProjectDir)script.js;%(JsLibrary)</JsLibrary>
-      <AdditionalOptions> -s EXPORTED_RUNTIME_METHODS=[ccall,cwrap] -s WASM=1   -lembind %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions> -s EXPORTED_RUNTIME_METHODS=[ccall,cwrap,setValue] -s WASM=1   -lembind %(AdditionalOptions)</AdditionalOptions>
       <EmBind>true</EmBind>
     </Link>
   </ItemDefinitionGroup>
