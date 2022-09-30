@@ -1,0 +1,33 @@
+﻿@page "/test3"
+@inject IJSRuntime JS
+
+<PageTitle>Test using heap directly</PageTitle>
+<h1> Test writing to HEAPF32 and passing a pointer argument</h1>
+<button @onclick=OnRunButtonClick >Run benchmark 3 once </button>
+<h1>Results: </h1>
+<p>@result</p>
+@code {
+    public string result = "";
+
+    [JSInvokable]
+    public static unsafe void WasmBenchmarkTestHeap(int pointerAsInt)
+    {
+        //return; funnily enough, without executing the loop below, the 1000 calls can execute in 83 ms
+
+        //hacky solution - pointer types are not json serializable, so for 32 bit wasm target the argument in the JSinvokable function should be int, in 64 it should be long
+        float* pointer = (float*) pointerAsInt;
+        const int size = 1 << 20;
+        for(int i = 0; i < size; i++)
+        {
+            *(pointer+i) *= (float)(i+3);
+        }
+    }
+
+    protected async void OnRunButtonClick()
+    {
+        result += "> ";
+        string res = await JS.InvokeAsync<string>("CSDirectHeapUseBenchmark");
+        result += $"{res}\n";
+
+    }
+}

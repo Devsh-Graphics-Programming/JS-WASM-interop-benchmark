@@ -1,6 +1,7 @@
 ﻿const SIZE = 1 << 20;
 const ITERS = 1000;
 const WARMUP = 5;
+const SIZE_OF_FLOAT = 4;
 
 
 
@@ -95,4 +96,38 @@ CSContainerBenchmark = (containerRef) => {
     }
 
     return resultLog;
+};
+
+
+CSDirectHeapUseBenchmark = () => {
+    console.log("Starting benchmark: Blazor inter-lang function calls with direct WASM heap allocation");
+    var testArray = Array.from({ length: SIZE }, (_, i) => i);
+    var buffer = Module._malloc(SIZE * SIZE_OF_FLOAT);
+
+    {
+        var timestamp = performance.now();
+        for (var i = 0; i < ITERS; i++)
+            Module.HEAPF32.set(testArray, buffer / SIZE_OF_FLOAT);
+        var initializationDuration = (performance.now() - timestamp) + " ms";
+        console.log("Initialization: " + initializationDuration);
+    }
+
+    for (var i = 0; i < WARMUP; i++) {
+        var timestampt = performance.now();
+        DotNet.invokeMethod("Benchmark.CS", "WasmBenchmarkTestHeap", buffer);
+        var loopDuration = performance.now() - timestampt;
+        console.log("Single function execution during warmup: " + loopDuration);
+    }
+
+
+    {
+        var timestampt = performance.now();
+        for (var i = 0; i < ITERS; i++)
+            DotNet.invokeMethod("Benchmark.CS", "WasmBenchmarkTestHeap", buffer);
+        var loopDuration = performance.now() - timestampt;
+        console.log("Execution: " + loopDuration);
+    }
+
+    Module._free(buffer);
+
 };
