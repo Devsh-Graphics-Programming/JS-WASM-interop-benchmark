@@ -6,13 +6,14 @@
 
 constexpr size_t V8_TURBOFAN_PADDING_SIZE = 128 << 13;
 static const char forceV8TurbofanPadding[V8_TURBOFAN_PADDING_SIZE] = {};
-
 constexpr int size = 1 << 20;
 constexpr int iters = 1000;
-constexpr long long runs = 50;
+constexpr long long runs = 5;
+
 extern "C" {
 	extern void Benchmark_functionCallsWithArrayArgument();
 	extern void Benchmark_exposedGenericCollectionToJS();
+	extern void Benchmark_directWasmHeapAllocation();
 
 
 	EMSCRIPTEN_KEEPALIVE void wasm_benchmark_test_array(float* ptr, int len)
@@ -23,9 +24,6 @@ extern "C" {
 		}
 	}
 }
-
-
-
 
 std::tuple<long long, long long> run_test()
 {
@@ -78,8 +76,9 @@ void Benchmark_wasmOnly()
 
 int EMSCRIPTEN_KEEPALIVE main()
 {
-	//Benchmark_wasmOnly();
+	Benchmark_wasmOnly();
 	Benchmark_functionCallsWithArrayArgument();
 	Benchmark_exposedGenericCollectionToJS();
+	Benchmark_directWasmHeapAllocation();
 	// std::cout << forceV8TurbofanPadding[rand() % V8_TURBOFAN_PADDING_SIZE] << std::endl;
 }

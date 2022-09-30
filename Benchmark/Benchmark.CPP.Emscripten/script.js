@@ -7,8 +7,6 @@ mergeInto(LibraryManager.library, {
         const ITERS = 1000;
         const WARMUP = 5;
         console.log("Starting benchmark: Emscripten inter-lang function calls with array argument");
-        console.log(SIZE + " Array length");
-        console.log("With warmup");
 
         var testArray = Array.from({ length: SIZE }, (_, i) => i);
         {
@@ -17,7 +15,7 @@ mergeInto(LibraryManager.library, {
                 for (var j = 0; j < SIZE; j++)
                     testArray[j] = j;
             var initializationDuration = (performance.now() - timestamp) + " ms";
-            console.log("done with initialization testing, result is " + initializationDuration);
+            console.log("Initialization: " + initializationDuration);
         }
 
         var testFunc = Module.cwrap("wasm_benchmark_test_array", null, ["array", "number"])
@@ -29,7 +27,7 @@ mergeInto(LibraryManager.library, {
             for (var i = 0; i < ITERS; i++)
                 testFunc(testArray, SIZE);
             var loopDuration = performance.now() - timestampt;
-            console.log("Function calls: " + loopDuration);
+            console.log("Execution: " + loopDuration);
         }
     },
 
@@ -39,29 +37,32 @@ mergeInto(LibraryManager.library, {
         const ITERS = 1000;
         const WARMUP = 5;
         console.log("Starting benchmark: Emscripten inter-lang function calls with JS-exposed generic collection as argument");
-        console.log(SIZE + " Array length");
 
         var buffer = Module._malloc(SIZE * SIZE_OF_FLOAT);
-               
+
         {
             var timestamp = performance.now();
             for (var i = 0; i < ITERS; i++) {
                 for (var j = 0; j < SIZE; j++) {
-                    const location = buffer + j * 4; 
+                    const location = buffer + j * 4;
                     const type = "float";
                     Module.setValue(location, j, type);
                 }
             }
             var initializationDuration = (performance.now() - timestamp) + " ms";
-            console.log("done with initialization testing, result is " + initializationDuration);
+            console.log("Initialization: " + initializationDuration);
         }
+        for (var i = 0; i < WARMUP; i++)
+            Module.ccall("wasm_benchmark_test_array", null, ["number", "number"], [buffer, SIZE]);
+
+
 
         {
             var timestampt = performance.now();
             for (var i = 0; i < ITERS; i++)
                 Module.ccall("wasm_benchmark_test_array", null, ["number", "number"], [buffer, SIZE]);
             var loopDuration = performance.now() - timestampt;
-            console.log("Function calls: " + loopDuration);
+            console.log("Execution: " + loopDuration);
         }
 
 
@@ -75,10 +76,30 @@ mergeInto(LibraryManager.library, {
         const ITERS = 1000;
         const WARMUP = 5;
 
+        console.log("Starting benchmark: Emscripten inter-lang function calls with direct WASM heap allocation");
         var testArray = Array.from({ length: SIZE }, (_, i) => i);
-
         var buffer = Module._malloc(SIZE * SIZE_OF_FLOAT);
-        Module.HEAPF32.set(samples, buffer / SIZE_OF_FLOAT);
+
+        {
+            var timestamp = performance.now();
+            for (var i = 0; i < ITERS; i++)
+                Module.HEAPF32.set(testArray, buffer / SIZE_OF_FLOAT);
+            var initializationDuration = (performance.now() - timestamp) + " ms";
+            console.log("Initialization: " + initializationDuration);
+        }
+
+        var testFunc = Module.cwrap("wasm_benchmark_test_array", null, ["number", "number"])
+
+        for (var i = 0; i < WARMUP; i++)
+            testFunc(buffer, SIZE);
+
+        {
+            var timestampt = performance.now();
+            for (var i = 0; i < ITERS; i++)
+                testFunc(buffer, SIZE);
+            var loopDuration = performance.now() - timestampt;
+            console.log("Execution: " + loopDuration);
+        }
 
         Module._free(buffer);
 
