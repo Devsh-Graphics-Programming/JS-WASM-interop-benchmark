@@ -29,12 +29,16 @@ Also the fact that C# throws exceptions when given an argument thats too large t
 
 |     Approach     | Initialization Time (us) | Execution Time (us) |
 |  --------------  |  ----------------------  |  -----------------  |
-| JS Array to C++  | 99202                    | 7421                |
-| JS Array to C#   | 99202                    | 18 932 821          |
-| JS populates C++ Container |                |                     |
-| JS populates C# Container | 77 852 050      | 384 100             |
-| JS populates HEAPF32, C++ |                 |                     |
-| JS populates HEAPF32, C# |                  |                     |
+| C++ Native       | 249                      | 706                 |
+| C# Native        | 1875                     | 2487                |
+| C++ WASM only    | 1392                     | 1456                |
+| C# WASM only     | 3616                     | 7397                |
+| JS Array to C++  | 493                      | 2896                |
+| JS Array to C#   | 493                      | 1681099             |
+| JS populates C++ Container | 13447          | 1818                |
+| JS populates C# Container | 82982600        | 1564                |
+| JS populates HEAPF32, C++ | 1570            | 1692                |
+| JS populates HEAPF32, C# | 1658.5           | 1167                |
 
 **IMPORTANT: The "JS Array to C#" method caused a runtime exception when the input size >= 128MB. We suppose its because the JSON serialization uses up a non-trivial amount of WASM transient memory.**
 
@@ -45,6 +49,8 @@ We created a 4MB array of floats and passed them to a C++ or C# function which m
 First a warmup loop of 40 iterations was executed before measuring the 1000 loops, we discarded the first run of the benchmark to account for V8 TurboFan optimizations.
 
 Result is the average time taken to execute one call in the 1000 iteration loop.
+
+The tests ran in order to obtain the above timings were on a machine with Ryzen 7 3800x
 
 ## Discussion
 
