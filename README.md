@@ -169,7 +169,7 @@ There's an `sMEMORY` switch in emscripten to disable the default `sizeof(void*)=
 
 Emscripten basically only provides the C and C++ standard and some other "system" libraries and then does codegen from Clang's IR.
 
-### Invoking C++ functions from JS
+#### Invoking C++ functions from JS
 
 Generally speaking the generated WASM is structurally similar to the contents of a Shared Library compiled for Native by Clang, the exported functions and methods follow the same name mangling scheme to deal with overloads and namespaces. There's also code resembling C++ C-API import libraries but in JS using their own pseudo `dlopen`.
 
@@ -179,7 +179,7 @@ Generally speaking JS can invoke a WASM function passing only POD types as argum
 
 When wishing to "push" JS objects across into a WASM function, they need to be serialized into a WASM Heap and deserialized out of it, in the case of C/C++ this becomes a simple copy as the prelude and postlude to a function invocation and the object reference is simply an offset to the temporary allocated in the WASM Heap.
 
-Emscripten's standard JS library has a wrapper for this called `ccall` which can invoke C/C++ functions with C wraps and has optimized implementations for passing arguments and return types which are strings or arrays. `ccall` itself has three arguments:
+Emscripten's runtime JS library has a wrapper for this called `ccall` which can invoke C/C++ functions with C wraps and has optimized implementations for passing arguments and return types which are strings or arrays. `ccall` itself has three arguments:
 1. function name (can be mangled)
 2. return type = [null, number, string, array (only byte arrays)]
 3. TUPLE
@@ -193,6 +193,8 @@ _If you pass a JS object as a `string` or `array`, Emscripten will handle alloca
 But Emscripten provides us with more mechanisms to make interop with C++ easier than writing C-API bindings for our code. We can resort to exposing a C++ objbect and some of its methods using Embind with `EMSCRIPTEN_BINDINGS`, this effectively creates all the `cwrap/ccall` JS glue code for us. We basically get a JS class with a matching name and methods which simply forwards all method implementations to the C++ name-mangled C functions.
 
 If you expose the constructor then you can initialize it directly is JS and pass it either by copy or pointer when invoking some other C++ function.
+
+**Using `ccall/cwrap` has an important downside, the tuple is always serialized and allocated compactly, meaning that calling a method with just 2 `number` arguments always causes Emscripten's runtime to `malloc` space for the 8 bytes of arguments.**
 
 ### How C# runs on the Web
 
@@ -242,9 +244,11 @@ For the purpose of language interop, non-static class methods need at least a po
 
 We discard any timing comparison against Approach 1 initialization loop as it uses some syntax sugar to initialize a JS array which can be very easily optimized, cached and JIT or AOT compiled to reach near native performance. However the difference between JS populating HEAP32 and the C++ or C# container gives us a very reliable result, as the population of the 4MB array requires JS to call the container method a million times per iteration loop with only one argument.
 
-The difference discussed above and [this little piece of testing code](https://github.com/Devsh-Graphics-Programming/JS-WASM-interop-benchmark/blob/214f2483ad0aa73d55ff576887e62cc91f0c622a/Benchmark/Benchmark.CS/Client/Pages/TestHeapAllocation.razor#L15) give us a 83-82 _microsecond_ overhead for invoking a C# static method.
+The difference discussed above and [this little piece of testing code](https://github.com/Devsh-Graphics-Programming/JS-WASM-interop-benchmark/blob/214f2483ad0aa73d55ff576887e62cc91f0c622a/Benchmark/Benchmark.CS/Client/Pages/TestHeapAllocation.razor#L15) give us a 83-82 _microsecond_ overhead for invoking a C# static method, probably due to JSON serialization of arguments.
 
 The difference discussed and the difference between C++ WASM only initialization and JS populating the C++ container give us an overhead of about 118-120 _nanoseconds_ for invoking a C++ function.
+
+You might notice that the execution of the C# benchmark is faster than C++ when the JS has already populated the container, this is because Mono does not JSON serialize the `DotNetObjectReferece` of the container and the method which runs the benchmark takes no arguments so JSON serialization is skipped. Meanwhile C++ uses `Module.ccall` which always copies the arguments to a `malloc`ed section of the WASM Heap in the JS prelude of the WASM function call, the previously calculated overhead in the order of ~100ns is very similar to the cost of a small `malloc` call on a native platform. Any futher gains in perf may be explained by the C# WASM module generated via C# compiler's AOT upon publishing being large enough (6mb due to Mono runtime getting statically linked) to prompt V8 to cache its WASM AOT to Native compilation.
 
 To put things into perspective, a single C# method invoke is about as expensive as a GPU Kernel/ComputeShader launch/dispatch, while a C++ method invoke is on the order of a single byte `malloc` or a kernel call (mutex lock, getpid, etc.). The difference is tens of thousands of function calls vs tens of millions ona  Ryzen 7 3800x, which becomes very pronounced when you want to do something on a low power device or at high FPS such as scrolling content for reading or rendering VR/XR.
 
