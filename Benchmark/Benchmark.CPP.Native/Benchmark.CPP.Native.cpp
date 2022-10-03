@@ -12,7 +12,7 @@ extern "C" {
     {
         for (size_t i = 0; i < len; i++)
         {
-            ptr[i] *= float(i) + 0.123456789f;
+            ptr[i] *= float(i) + 3;
         }
     }
 }

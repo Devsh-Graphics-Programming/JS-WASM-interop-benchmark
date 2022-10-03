@@ -36,34 +36,5 @@ namespace Benchmark.CS
 			}
 		}
 
-		[JSInvokable]
-		public static void PseudoNativeBenchmark()
-		{
-			Stopwatch stopwatch = new Stopwatch();
-
-			stopwatch.Start();
-			var array = new ContainerClass();
-			for(int i = 0; i < Benchmark.CS.Program.ITERATIONS; i++)
-			{
-				for(int j = 0; j < SIZE; j++)
-				{
-					array[j] = j;
-				}
-			}
-			stopwatch.Stop();
-			Console.WriteLine("Initialization Elapsed milliseconds: " + stopwatch.ElapsedMilliseconds);
-
-			stopwatch.Start();
-			for(int i = 0; i < Benchmark.CS.Program.ITERATIONS; i++)
-			{
-				array.WasmBenchmarkTestArrayInstanced();
-			}
-			stopwatch.Stop();
-			Console.WriteLine("Loop Elapsed milliseconds: " + stopwatch.ElapsedMilliseconds);
-
-
-			Console.WriteLine(array[new System.Random().Next(SIZE)]);
-		}
-
 	}
 }
