@@ -9,9 +9,11 @@ _The last approach is only possible for Plain Old Data types such as structs mad
 
 ## Glossary of Acronyms
 
-AoT = Ahead of Time compilation (transpiling the C# IL to native and linktime optimizing it with the runtime's native code)
+AoT = Ahead of Time compilation (transpiling the C# IL to native, static linking and linktime optimizing it with the runtime's native code, as part of the build step or while running the JIT version to hotswap with later)
 
 IL = Intermediate Language (can be interpreted by runtime)
+
+JIT = Just In Time compilation (compiling the IL to native while loading the module or library containing it, or even during runtime while interpreting)
 
 JS = JavaScript
 
@@ -33,7 +35,7 @@ In our opinion C# is not a viable target for developing a WASM Library whose int
 
 The bandwidth attained during argument passing is abysmal (2.5 MB/s on a Ryzen 7 3800x, 235 KB/s on a Core i5 Ultra Low Power), this is due to JSON serialization.
 
-**GRAVE CONCERN: The "JS Array to C#" method caused a runtime exception when the input size is in the low hundreds of megabytes.**
+**GRAVE CONCERN: The "JS Array to C#" method caused a runtime exception when the input size is in the low hundreds of megabytes. See our Analysis section on argument passing for a possible explanation.**
 
 ### Approach 2
 
@@ -84,38 +86,133 @@ The C# was build with all optimization flags available in VS2022, it targetted .
 
 ## Analysis
 
-The web WASM runtime cannot access any JavaScript object except those that live within the WASM module's runtime. This affects both C++ and C#.
+### Differences between C++ and C# when running in Native
 
-**TL;DR:** WASM code ran in a browser behaves similarly to a Virtualized OS ran on a Host OS. JavaScript can manipulate objects within the WASM runtime, and WASM can _at most_ invoke JS functions.
+As we targeted .Net 6.0 and not 7.0, there's no AoT available for C# on x64, so our benchmark ran either interpreted or JITed straight from the `.dll` containing the IL. Because of the relative shortness of the benchmark, any on-line JIT while running the interpreted IL would not help.
 
-This behaviour is the result of WASM not yet allowing for direct DOM manipulation, direct Web API usage, nor is aware of Garbage Collection of the JavaScript runtime. The latter would be required to access and manipulate JS objects without them getting relocated or freed, similar to how C++ and C# interop works with pinned handles.
+The C# build did not show any signs of assignment tracking or loop analysis optimization. In C++ has we not put a `rand()%SIZE` readback of the array and some other tricks to fight the optimizer, the loops would get optimized out to take 0 seconds to complete. In fact, we should probably analyze the generated assembly to ensure all C++ compiler's attempts to optimize away loops have been thwarted. This is in stark contrast to C#'s behaviour.
+
+Furthermore we did not find any flag or switch that would control the level of SIMD intrinsics emitted or autovectorization like in C++, the difference between the speed looks like a standard 3-4x difference from using SSE in iterating an array of 32 bit numbers and performing multiplication and addition.
+
+The massive speed difference in intialization of the array could be explained by C++ applying "fast math" SIMD integer to float conversion intrinsics and C# using the precise version or assignment tracking by the optimizer.
+
+Another possibility is loop unrolling which makes the job easy for an autovectorizer during codegen.
+
+#### Passing the `float[]` by `ref` or `in` was 2x slower
+
+We don't know why [this is the case, would be nice if we got enlightened by someone who knows C# better.](https://github.com/Devsh-Graphics-Programming/JS-WASM-interop-benchmark/blob/140a46a4654e654359e4fc7c37813ffdba2942bc/Benchmark/Benchmark.CS.Native/Program.cs#L22).
+
+### Differences between C++ Native and WASM only
+
+WASM Modules define their functions in terms of an IL, but this IL is never interpreted, it's compiled to some form of native code.
+
+However to make them load "fast" the Chrome V8 Engine compiles them with little optimization JIT first, followed by AoT in the background which is only cached if the resulting module surpasses 128kb, which our benchmark does not.
+
+Furthermore WASM has a very limited support of SSE intrinsics and probably can't trust any alignment declarations to of pointers a 16 byte boundary for security reasons (such as those that `malloc` gives on almost all 64bit platforms), therefore Clang's autovectorizer will not do as good of a job as MSVC's. The slowdown looks similar to what we'd see when SSE register loads are being replaced with unaligned variants.
+
+### Differences between C# Native and WASM only
+
+This one appears very confusing given that the difference against Approach 3 is only in the data type being a `float[]` instead of a `float*` and the initialization of the container taking place in JS.
+
+It might be that `operator[]` on a `float[]` performs some range checks or suffers some other overhead compared to an `unsafe` `float*`.
+
+We're very baffled and would appreciate any explanation from anyone else.
 
 ### JavaScript arrays are "kind of" typed
 
-TL;DR There are no "real" arrays to work with JavaScript, an array is always an array of pointers/references so there are _no contiguous_ arrays of non-POD types like in C.
+**TL;DR** There are no "real" arrays to work with JS, an array is always an array of pointers/references so there are _no contiguous_ arrays of non-POD types like in C.
 
 _Of course there's stuff like `Float32Array` but this is what we mean by JS arrays being "typed" and refusing to call the others real arrays._
 
-Because JS typeless, it means the type of any element in an array can mutate, ergo non-contiguity of storage and an indirect reference.
+Because JS is typeless, it means the type of any element in an array can mutate, ergo non-contiguity of storage and and resulting indirect reference.
 
-### Argument Passing
+### How the Browser WASM Runtime works and its limits
 
-As a corollary of the above, there are only three ways to pass data between JS and WASM:
-1. Accept JS Array as input and make a temporary copy of it into the WASM `ubyte` heap, then invoke the C++ or C# function with a pointer
-2. Have JS create a C++ or C# container and invoke a C++ or C# method of said container to access one element at a time for initialization or readback
-3. Have JS create a WASM heap/memory allocation, write directly to it (for non-POD it means serialization) reinterpret the offset of the allocation as a pointer and pass it to any C++ or C# function
+#### Pseudo-Virtualization
 
-Note: You might think that approach 2 suffers from the same "copy JS variable to WASM stack" issue as approach 1, however WebAssembly API actually passes POD arguments with no overhead.
+The any WASM code lives inside of a WASM Module object and can only access the objects created by the WASM Runtime APIs, with the only notable exception of being able to call a JS function, but only with arguments that come from WASM runtime. These APIs are JS APIs.
+
+As both C++ and C# compile to WASM directly or indirectly via Emscripten (C#'s only WASM runtime is Mono-WASM that compiles with Emscripten), the above limitation concerns both of them.
+
+**TL;DR:** WASM code ran in a browser behaves similarly to a Virtualized OS ran on a Host OS. JavaScript can manipulate objects within the WASM runtime, and WASM can _at most_ invoke JS functions.
+
+This behaviour is the result of WASM not yet allowing for direct DOM manipulation, direct Web API usage, nor is it yet aware of the JS runtime's GC. The latter would be required to access and manipulate JS objects without them getting relocated or freed, similar to how C++ and C# interop works with pinned handles.
+
+#### How can one pass an array argument to a WASM function?
+
+As a corollary of the above, there are only three ways to pass our benchmark's data between JS and WASM:
+1. Accept JS Array as input and make a temporary copy of it into the WASM heap, then invoke the WASM function with a "memory address" within the heap
+2. Have JS create a C++ or C# container and invoke a C++ or C# method of this container to initialize or readback, accessing one element at a time
+3. Have JS create a WASM heap/memory allocation, write directly to it (for non-POD it means serialization) then follow approach 1 for the rest
+
+Note: You might think that approach 2 suffers from the same "copy JS variable to WASM stack" issue for the container's methods as approach 1, however WebAssembly API can actually passes single POD arguments with no overhead.
+
+#### There's no inlining or link-time optimization across the JS-WASM boundary
+
+Naturally due to the fact that WASM Modules are manipulated from JS at runtime, and this manipulation means at least downloading (streamed), validating and compiling (JIT and AOT), link time optimization and inlining of function calls across the JS-WASM boundary is for now precluded.
+
+### How C++ runs on the Web
+
+#### Emscripten is the only feature WASM compiler for C and C++
+
+Initially started as a project to transpile C++ to JS, it has evolved to target WASM as well.
+
+However due to aformentioned DOM and WebAPI access limitations of WASM and the legacy of targetting JS directly, large parts of the standard library (and other libraries such as OpenGL ES) are implemented in JavaScript functions which have shim export C-API headers that invoke them and are imported by WASM.
+
+#### WASM is a 32bit architecture
+
+There's an `sMEMORY` switch in emscripten to disable the default `sizeof(void*)==4`, however using `sizeof(void*)==8` breaks most things and can't be used in production. There's also an option to "emulate 64 bits" by adding some instructions that cast pointers between 32bit and 64bit when leaving the module boundary.
+
+#### Emscripten uses Clang as a C++ compiler backend
+
+Emscripten basically only provides the C and C++ standard and some other "system" libraries and then does codegen from Clang's IR.
+
+### How C# runs on the Web
+
+#### Mono is the only runtime available when targetting WASM
+
+Blazor and Unoplatform are the two functional C# SDKs for the web, however both of them rely on Mono-WASM's C# runtime.
+
+#### All C# code is eventually compiled by Emscripten
+
+Mono relies on Emscripten to compile its C and C++ codebase plus any autogenerated "native" files to WASM.
+
+#### AoT is available when targeting WASM but not Native
+
+.Net 7.0 has AoT planned for Native, but Mono-WASM already has it.
+
+_As an interesting corollary this means that features such as LTO, inlining and even autovectorization "should" be possible._ 
+
+## Corollary Results
+
+### All your code passes through Emscripten and Clang
+
+Doesn't matter what language or runtime you use, in the end your code is either compiled by or interpreted using a runtime compiled by Emscripten and Clang. 
+
+### C++ and C# function invocation overheads
+
+This is why it was useful for us to have single language versions of the benchmarks, such as JS-only initialization of arrays or WASM-only execution of the benchmark loop. By looking at the delta's between the times we can examine the overheads.
+
+#### Function call with minimal amount arguments
+
+For the purpose of language interop, non-static class methods need at least a pointer/handle to the object they're supposed to operate on, hence why we don't have timings for void functions with no arguments.
+
+We discard 
+
+https://github.com/Devsh-Graphics-Programming/JS-WASM-interop-benchmark/blob/214f2483ad0aa73d55ff576887e62cc91f0c622a/Benchmark/Benchmark.CS/Client/Pages/TestHeapAllocation.razor#L15 -> points to a 83 us call overhead
+
+#### Function call with large amount arguments
+
+
+
 
 ### C#
 
-Blazor (and Mono-WASM) support invoking methods only if the arguments are JSON-serializable, there's no other alternative.
+Blazor (and Mono-WASM) support invoking methods only if the arguments are JSON-serializable, there's currently no other alternative.
 
-Understandably serializing a 4MB object (an array) to JSON is insanity, hence why the JS Array approach is so slow on this platform.
+Aside from serialization deserialization speed, a large concern of using JSON serialization is the memory usage. In our example, the peak memory usage can surpass 5.5x or even 11x of the original, depending if the JS garbage collector kicks in to clean up the temporary JSON string before the C# deserialization begins.
 
-As Handles/Pointers to C# objects are serializable to JSON as they're plain numbers, so this explains the speedup gained by passing a C# container to the execution method. However the overhead of JSON serialization just gets shifted to the function initializing the object. This way is also much slower.
-
-Another large concern of using JSON serialization is the memory usage. At one point of time, the peak memory usage to pass the 4 MB array to .NET function reaches huge numbers as:
+pass the 4 MB array to .NET function reaches huge numbers:
 - the original array is stored in the memory (4MB)
 - array serialized to a JSON string is stored on JS side (~ x5 the original memory)
 - the json string is then copied to .NET memory (another ~x5)
@@ -192,3 +289,8 @@ a)  the code uses `Module._malloc`, `Module.ccal` and other cpp functions with t
 The funcs in C++ still required `extern "C"`
 b) explicit exporting funtions with compile parameter `-s EXPORTED_RUNTIME_METHODS=[ccall,cwrap]`. This is not listed in the install manual of the package.
 c) the example code from readme did not work due to a)  
+
+
+# Errata
+
+If you feel like we got something wrong, open a PR, we much appreciate any insight.
