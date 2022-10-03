@@ -1,15 +1,21 @@
 # Report on Handling of Arrays by C++ and C# in WASM
 
 Three classes of approaches:
-- Use a regular JavaScript array and pass C++ or C# function
-- Force JavaScript to populate container defined in C++ or C# and use it
-- Allocate from WASM native heaps, populate with JavaScript
+1. Use a regular JavaScript array and pass C++ or C# function
+2. Force JavaScript to populate container defined in C++ or C# and use it
+3. Allocate from WASM native heaps, populate with JavaScript
 
-_The last approach is only possible for Plain Old Data types like floats and integers. It is also not very practical due to having to hand-write what essentially amounts to serialization of a JS object to a WASM memory heap._
+_The last approach is only possible for Plain Old Data types such as structs made of floats and integers. It is also not very practical due to having to hand-write what essentially amounts to serialization of a JS object to a WASM memory heap._
 
 ## Glossary of Acronyms
 
+AoT = Ahead of Time compilation (transpiling the C# IL to native and linktime optimizing it with the runtime's native code)
+
+IL = Intermediate Language (can be interpreted by runtime)
+
 JS = JavaScript
+
+GC = Garbage Collector (can be either the C# runtime's or JS runtime's)
 
 POD = Plain Old Data (C++/C# built in types of fixed size)
 
@@ -17,42 +23,66 @@ TS = TypeScript
 
 WASM = Web Assembly
 
-## Our Conclusion
+## Our Conclusion (TL;DR)
 
-C# is not a viable target for a Library whose functions can accept objects larger than a few bytes.
+#### DISCLAIMER: We sincerely hope for Mono-WASM's sake we did something wrong, its likely as our knowledge of C++ exceeds C# and JS
 
-Using a C# container with TS/JS bindings is an illusory solution as this moves the function call overhead from the C# function calls which accept the large object as an argument, to any and all manipulation of said object on the JS side.
+In our opinion C# is not a viable target for developing a WASM Library whose intended API usage results in bandwidth of more than a few _tens of kilobytes/s_ or a few thousand function calls per second.
 
-Also the fact that C# throws exceptions when given an argument thats too large to serialize, is of grave concern.
+### Approach 1
+
+The bandwidth attained during argument passing is abysmal (2.5 MB/s on a Ryzen 7 3800x, 235 KB/s on a Core i5 Ultra Low Power), this is due to JSON serialization.
+
+**GRAVE CONCERN: The "JS Array to C#" method caused a runtime exception when the input size is in the low hundreds of megabytes.**
+
+### Approach 2
+
+Using a C# container with TS/JS bindings (approach 2: pass reference to C# object as argument) is an illusory solution as this moves the overhead from the data processing C# function calls, to any and all manipulation of said object on the JS side, primarily the initialization. In our example the overhead incurred from fine grained element access is far greater than from batch serialization during argument passing.
+
+### Approach 3
+
+Using `HEAPF32` in C# basically amounts to working from a C-like `unsafe` pointer to an array, hence the similar performance to C++. Please note the key difference with approach 2, which is that almost the entire C# runtime is sidestepped for the passing of arguments with the sole exception being made to call the benchmark function's entry point.
+
+In order to leverage this approach in production, one needs to write their own JS bindings (because invoking C# methods has too much overhead) that operate directly on the byte representations of C# objects in the WASM HEAP while the object memory location is pinned (so the GC does not move it halfway through) and a stable memory address can be obtained. As far as we know, no tool to automate this process exists and frankly we're of the opinion that such a tool should have been available in the first place as part of the Blazor framework's toolbox.
+
+Furthermore we'd consider this approach to be practically identical to using C++ at that point, as one would lose most advantages of C# such as GC, use heaps of `unsafe` code and the whole process would resemble C# to unmanaged code interop with `GCHandle`.
+
+Our only _sane_ recommendation to provide an environment to "implement object methods in C#", would be to "declare the Interface in C++ with Embind JS bindings, use SWIG with Directors, inherit and implement in C#". This is the only fully-automated, zero duplicate code maintenance solution for which tooling exists as of October 2022.
+
+See our Analysis section for a discussion of possible reasons why this C# apprach is faster than both C# Native and C++ WASM only.
 
 ## Results
 
 |     Approach     | Initialization Time (us) | Execution Time (us) |
 |  --------------  |  ----------------------  |  -----------------  |
 | C++ Native       | 249                      | 706                 |
-| C# Native        | 1875                     | 2487                |
-| C++ WASM only    | 1392                     | 1456                |
-| C# WASM only     | 3616                     | 7397                |
-| JS Array to C++  | 493                      | 2896                |
-| JS Array to C#   | 493                      | 1681099             |
-| JS populates C++ Container | 13447          | 1818                |
-| JS populates C# Container | 82982600        | 1564                |
-| JS populates HEAPF32, C++ | 1570            | 1692                |
-| JS populates HEAPF32, C# | 1658.5           | 1167                |
-
-**IMPORTANT: The "JS Array to C#" method caused a runtime exception when the input size >= 128MB. We suppose its because the JSON serialization uses up a non-trivial amount of WASM transient memory.**
+| C# Native        | 1880                     | 2490                |
+| C++ WASM only    | 1390                     | 1460                |
+| C# WASM only     | 3620                     | 7400                |
+| JS Array to C++  | 493                      | 2900                |
+| JS Array to C#   | 493                      | 1680000             |
+| JS populates C++ Container | 13400          | 1820                |
+| JS populates C# Container | 83000000        | 1560                |
+| JS populates HEAPF32, C++ | 1570            | 1690                |
+| JS populates HEAPF32, C# | 1660             | 1170                |
 
 ### Methodology
 
-We created a 4MB array of floats and passed them to a C++ or C# function which multiplied all elements by a constant. 
+We created a 4MB array of floats and passed them to a C++ or C# function which multiplied all elements by a `(i+3)`. 
 
-First a warmup loop of 40 iterations was executed before measuring the 1000 loops, we discarded the first run of the benchmark to account for V8 TurboFan optimizations.
+First we initialized the 4MB array with an `std::iota` like sequence, 1000 times over.
 
-Result is the average time taken to execute one call in the 1000 iteration loop.
+Secondly a warmup loop of a few iterations was executed before measuring the execution time of 1000 loops, we discarded the first run of the benchmark to account for V8 TurboFan cached AOT compilation optimizations.
 
-The tests ran in order to obtain the above timings were on a machine with Ryzen 7 3800x
+Results are the average time taken to execute one initialization or execution call in the 1000 iteration loop.
 
-## Discussion
+The tests ran in order to obtain the above timings were on a machine with Ryzen 7 3800x and in the Chrome browser.
+
+The C++ compiled code had SSE and O3 enabled both natively and in Emscripten.
+
+The C# was build with all optimization flags available in VS2022, it targetted .Net 6.0 and hence AoT was available only for WASM target. Fully published builds were used for benchmarking.
+
+## Analysis
 
 The web WASM runtime cannot access any JavaScript object except those that live within the WASM module's runtime. This affects both C++ and C#.
 
