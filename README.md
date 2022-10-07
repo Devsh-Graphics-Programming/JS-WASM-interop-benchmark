@@ -63,7 +63,7 @@ See our Analysis section for a discussion of possible reasons why this C# apprac
 | C# WASM only     | 3620                     | 7400                |
 | JS Array to C++  | 493                      | 2900                |
 | JS Array to C#   | 493                      | 1680000             |
-| JS populates C++ Container | 13400          | 1820                |
+| JS populates C++ Container | 11900          | 1210                |
 | JS populates C# Container | 83000000        | 1560                |
 | JS populates HEAPF32, C++ | 1570            | 1690                |
 | JS populates HEAPF32, C# | 1660             | 1170                |
