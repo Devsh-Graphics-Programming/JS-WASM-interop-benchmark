@@ -23,6 +23,7 @@ extern "C" {
 			ptr[i] *= float(i) + 3;
 		}
 	}
+	
 }
 
 std::tuple<long long, long long> run_test()
@@ -55,6 +56,38 @@ std::tuple<long long, long long> run_test()
 
 
 }
+
+
+class ContainerClass {
+public:
+	float *data;
+	ContainerClass() 
+	{
+		data = (float*)malloc(size * sizeof(float));
+	}
+
+	void set(int i, float v) {
+		data[i] = v;
+	}
+};
+void wasm_benchmark_test_container(ContainerClass obj)
+{
+	for (size_t i = 0; i < size; i++)
+	{
+		obj.data[i] *= float(i) + 3;
+	}
+}
+
+using namespace emscripten;
+EMSCRIPTEN_BINDINGS(benchmark_module) {
+	class_<ContainerClass>("ContainerClass")
+		.constructor()
+		.function("set", &ContainerClass::set);
+
+	function("wasm_benchmark_test_container", &wasm_benchmark_test_container);
+}
+
+
 
 void Benchmark_wasmOnly()
 {

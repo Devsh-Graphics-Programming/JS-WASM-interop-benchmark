@@ -39,33 +39,30 @@ mergeInto(LibraryManager.library, {
         console.log("Starting benchmark: Emscripten inter-lang function calls with JS-exposed generic collection as argument");
 
         var buffer = Module._malloc(SIZE * SIZE_OF_FLOAT);
-
+        var container = new Module["ContainerClass"]();
         {
             var timestamp = performance.now();
             for (var i = 0; i < ITERS; i++) {
                 for (var j = 0; j < SIZE; j++) {
-                    const location = buffer + j * 4;
-                    const type = "float";
-                    Module.setValue(location, j, type);
+                    container.set(j, j);
                 }
             }
             var initializationDuration = (performance.now() - timestamp) + " ms";
             console.log("Initialization: " + initializationDuration);
         }
         for (var i = 0; i < WARMUP; i++)
-            Module.ccall("wasm_benchmark_test_array", null, ["number", "number"], [buffer, SIZE]);
-
+            Module["wasm_benchmark_test_container"](container);
 
 
         {
             var timestampt = performance.now();
             for (var i = 0; i < ITERS; i++)
-                Module.ccall("wasm_benchmark_test_array", null, ["number", "number"], [buffer, SIZE]);
+                Module["wasm_benchmark_test_container"](container);
             var loopDuration = performance.now() - timestampt;
             console.log("Execution: " + loopDuration);
         }
 
-
+        delete container;
     },
 
 
