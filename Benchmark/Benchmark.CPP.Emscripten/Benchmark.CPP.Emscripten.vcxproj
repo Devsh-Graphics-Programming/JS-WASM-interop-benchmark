@@ -42,6 +42,11 @@
       <EmBind>true</EmBind>
     </Link>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Emscripten'">
+    <Link>
+      <AdditionalOptions> -s EXPORTED_RUNTIME_METHODS=[ccall,cwrap,setValue] -s WASM=1   -lembind   --bind --js-library "C:\work\JS-WASM-interop-benchmark\Benchmark\Benchmark.CPP.Emscripten\script.js" %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Main.cpp" />
   </ItemGroup>
