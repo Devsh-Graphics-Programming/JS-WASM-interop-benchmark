@@ -68,6 +68,12 @@ See our Analysis section for a discussion of possible reasons why this C# apprac
 | JS populates HEAPF32, C++ | 1570            | 1690                |
 | JS populates HEAPF32, C# | 1660             | 1170                |
 
+## Building and Running (TODO)
+
+The following VS2022 components need to be installed:
+- TODO
+- TODO
+
 ### Methodology
 
 We created a 4MB array of floats and passed them to a C++ or C# function which multiplied all elements by a `(i+3)`. 
