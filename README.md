@@ -71,8 +71,9 @@ See our Analysis section for a discussion of possible reasons why this C# apprac
 ## Building and Running (TODO)
 
 The following VS2022 components need to be installed:
-- TODO
-- TODO
+- .NET WebAssembly Build Tools
+- ASP.NET and web development prerequisites
+- Emscripten Build Support for Visual Studio 2022 (Extension by KamenokoSoft)
 
 ### Methodology
 
