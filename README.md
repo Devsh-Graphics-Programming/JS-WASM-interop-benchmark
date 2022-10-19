@@ -301,3 +301,7 @@ but the code there is bound to not work should you use closure compiler that com
 # Errata
 
 If you feel like we got something wrong, open a PR, we much appreciate any insight.
+
+## Missed C# approach
+
+We could also [try this fast path](https://learn.microsoft.com/en-us/aspnet/core/blazor/javascript-interoperability/call-dotnet-from-javascript?view=aspnetcore-6.0#byte-array-support) but it would require a manual overload of the C# function which would reinterpret the byte array as a float array.
