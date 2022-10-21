@@ -217,7 +217,7 @@ And yes, while a native C# runtime can JIT your C# IL to the runtime binary's pl
 
 However AOT compilation completely flips the script on this, because it allows your C# IL to be turned into a compiled into a regular library which can then be link-time and whole-program optimized (eg. inlining across libraries) when statically linked against the runtime library. The runtime itself can also shake off unused functions. Unity has been doing AOT C# for a long time now with IL2CPP.
 
-Mono can AOT compile your C# IL, which Blazor does when you "Publish" your project to a webserver if you enabled that option. It also autogenerates some C and C++ transient sources if you use some C# features like `DLLExport`.
+Mono can AOT compile your C# IL, which Blazor does when you "Publish" your project to a webserver if you enabled that option. It also autogenerates some C and C++ transient sources and needs to compile them with Emscripten, if you use some C# features like passing delegates to unmanaged code ([which doesn't seem to work anyway](https://github.com/dotnet/runtime/issues/56145)).
 
 Naturally with Emscripten being the only proven way to compile C and C++ this means that all of your C# code (runtime and your program IL) is compiled using Clang or at least linked using `wasm-ld` from the Emscripten SDK (if/when Mono build the LLVM IR straight from C# IL).
 
