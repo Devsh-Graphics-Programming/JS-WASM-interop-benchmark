@@ -162,7 +162,7 @@ Naturally due to the fact that WASM Modules are manipulated from JS at runtime, 
 
 ### How C++ runs on the Web
 
-#### Emscripten is the only feature WASM compiler for C and C++
+#### Emscripten is the only feature complete WASM compiler for C and C++
 
 Initially started as a project to transpile C++ to JS, it has evolved to target WASM as well.
 
@@ -195,7 +195,7 @@ Emscripten's runtime JS library has a wrapper for this called `ccall` which can 
 There's also `cwrap` which can bake all this up-front into a single JS object with a `operator()` which makes not only makes the call-site appear pretty but can also make repeated calls faster. 
 **The code needs to compiled with `-s EXTRA_EXPORTED_RUNTIME_METHODS=['ccall','cwrap']` in order to make this available.**
 
-_If you pass a JS object as a `string` or `array`, Emscripten will handle allocation of space in the WASM Heap and copying the JS object in and out of it.
+_If you pass a JS object as a `string` or `array`, Emscripten will handle allocation of space in the WASM Heap and copying the JS object in and out of it._
 
 But Emscripten provides us with more mechanisms to make interop with C++ easier than writing C-API bindings for our code. We can resort to exposing a C++ objbect and some of its methods using Embind with `EMSCRIPTEN_BINDINGS`, this effectively creates all the `cwrap/ccall` JS glue code for us. We basically get a JS class with a matching name and methods which simply forwards all method implementations to the C++ name-mangled C functions.
 
@@ -217,7 +217,7 @@ And yes, while a native C# runtime can JIT your C# IL to the runtime binary's pl
 
 However AOT compilation completely flips the script on this, because it allows your C# IL to be turned into a compiled into a regular library which can then be link-time and whole-program optimized (eg. inlining across libraries) when statically linked against the runtime library. The runtime itself can also shake off unused functions. Unity has been doing AOT C# for a long time now with IL2CPP.
 
-Mono can AOT compile your C# IL, which Blazor does when you "Publish" your project to a webserver if you enabled that option. It also autogenerates some C and C++ transient sources and needs to compile them with Emscripten, if you use some C# features like passing delegates to unmanaged code ([which doesn't seem to work anyway](https://github.com/dotnet/runtime/issues/56145)).
+Mono can AOT compile your C# IL, which Blazor does when you "Publish" your project to a webserver if you enabled that option. It also autogenerates some C and C++ transient sources and needs to compile them with Emscripten, if you use some C# features like passing delegates to unmanaged code ([which doesn't seem to work anyway](https://github.com/dotnet/runtime/issues/56145) except for `MonoPInvokeCallback` static delegates).
 
 Naturally with Emscripten being the only proven way to compile C and C++ this means that all of your C# code (runtime and your program IL) is compiled using Clang or at least linked using `wasm-ld` from the Emscripten SDK (if/when Mono build the LLVM IR straight from C# IL).
 
@@ -229,7 +229,9 @@ _As an interesting corollary this means that features such as LTO, inlining and 
 
 #### Invoking C# methods from JS
 
-Blazor (and Mono-WASM) support invoking methods only if the arguments are JSON-serializable, there's currently no other alternative.
+Blazor (and Mono-WASM) support invoking methods only if the arguments are JSON-serializable, there's no other alternative in .Net 6.0
+
+If you're interested about .Net 7.0 [skip to the bottom](Errata) section.
 
 Aside from serialization deserialization speed, a large concern of using JSON serialization is the memory usage. In our example, the peak memory usage can surpass 5.5x or even 21x of the original, depending on when the GC kicks in to clean up the temporary JSON strings.
 
@@ -302,6 +304,18 @@ but the code there is bound to not work should you use closure compiler that com
 
 If you feel like we got something wrong, open a PR, we much appreciate any insight.
 
-## Missed C# approach
+## We're not sure if WASM .Net 6.0 uses Reflection or Source Generation based JSON Serialization
+
+Apparently there's a way to make `System.Text.Json` [generate the serialization and deserialization at compile time](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/source-generation) we found this out after completing the benchmark. 
+
+While its possible that it could improve the speed of argument passing greatly, its unlikely to get within one order of magnitude of C++ argument passing, since the latter is a plain `memcpy`.
+
+#### Also it wont alleviate any problems with the memory consumption during the function call.
+
+We also have no idea if and how it works in Mono-WASM.
+
+## Missed .Net 7.0 C# approach
 
 We could also [try this fast path](https://learn.microsoft.com/en-us/aspnet/core/blazor/javascript-interoperability/call-dotnet-from-javascript?view=aspnetcore-6.0#byte-array-support) but it would require a manual overload of the C# function which would reinterpret the byte array as a float array.
+
+However this method is not viable for dealing with any other argument but a primitive type, the rest would require passing `GCHandle`s around.
